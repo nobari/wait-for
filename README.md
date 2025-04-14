@@ -100,6 +100,72 @@ jobs:
           verbose: false
 ```
 
+## Development and Release Process
+
+This section outlines the steps for developing, validating, and publishing new versions of the orb.
+
+### Prerequisites
+
+Ensure you have the CircleCI CLI installed and configured:
+
+```bash
+curl -fLSs https://raw.githubusercontent.com/CircleCI/local-cli/master/install.sh | bash
+circleci setup
+```
+
+### Development Workflow
+
+1. **Validate your orb locally**:
+   ```bash
+   # Pack the orb source files
+   circleci orb pack src/ > orb.yml
+   
+   # Validate the orb
+   circleci orb validate orb.yml
+   ```
+
+2. **Publish a development version**:
+   ```bash
+   # Publish to dev:latest
+   circleci orb publish orb.yml nobari/wait-for@dev:latest
+   ```
+   Development versions expire after 90 days if not updated.
+
+3. **Test the development version** in your CircleCI configuration:
+   ```yaml
+   orbs:
+     wait-for: nobari/wait-for@dev:latest
+   ```
+
+### Release Process
+
+Publishing follows semantic versioning principles:
+- **Patch**: Bug fixes and minor changes (1.0.x)
+- **Minor**: New features, non-breaking (1.x.0)
+- **Major**: Breaking changes (x.0.0)
+
+1. **Publish a patch release**:
+   ```bash
+   circleci orb publish promote nobari/wait-for@dev:latest patch
+   ```
+
+2. **Publish a minor release**:
+   ```bash
+   circleci orb publish promote nobari/wait-for@dev:latest minor
+   ```
+
+3. **Publish a major release**:
+   ```bash
+   circleci orb publish promote nobari/wait-for@dev:latest major
+   ```
+
+4. **Verify the published version**:
+   ```bash
+   circleci orb info nobari/wait-for
+   ```
+
+Remember that published versions are immutable and cannot be deleted or modified.
+
 ## Contributing
 
 We welcome [issues](https://github.com/nobari/wait-for/issues) and [pull requests](https://github.com/nobari/wait-for/pulls) against this repository!
