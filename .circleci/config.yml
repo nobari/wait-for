@@ -6,7 +6,7 @@ orbs:
   # Use the shellcheck orb
   shellcheck: circleci/shellcheck@3.4.0
   # Use the node orb for running eslint
-  node: circleci/node@5.1.0
+  node: circleci/node@7.1.0
 
 # Pipeline parameters
 parameters:
