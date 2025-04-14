@@ -1,0 +1,55 @@
+version: 2.1
+
+orbs:
+  wait-for: nobari/wait-for@0.0.1
+
+jobs:
+  test-api:
+    docker:
+      - image: cimg/node:16.13
+      - image: cimg/postgres:14.0
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Start API server
+          command: npm run start
+          background: true
+      - wait-for/wait_for_endpoint:
+          url: 'http://localhost:3000/health'
+          service_name: 'API Server'
+          timeout: 60
+          interval: 2
+      - run:
+          name: Run API tests
+          command: npm run test:api
+
+  test-with-external-service:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - wait-for/wait_for_endpoint:
+          url: 'https://api.example.com/status'
+          service_name: 'External API'
+          headers: 'Authorization: Bearer ${API_TOKEN}'
+          method: POST
+          status_code: 200
+          verbose: true
+      - run:
+          name: Run integration tests
+          command: ./run-integration-tests.sh
+
+workflows:
+  test-workflow:
+    jobs:
+      - test-api
+      - test-with-external-service:
+          requires:
+            - test-api

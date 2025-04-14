@@ -1,3 +1,4 @@
+---
 description: >
   Wait for an HTTP endpoint to become available before proceeding.
 
@@ -11,32 +12,36 @@ parameters:
   timeout:
     type: integer
     default: 120
-    description: "Maximum time to wait in seconds before failing"
+    description: Maximum time to wait in seconds before failing
   interval:
     type: integer
     default: 5
-    description: "Interval between checks in seconds"
+    description: Interval between checks in seconds
   verbose:
     type: boolean
     default: true
-    description: "Enable verbose output"
+    description: Enable verbose output
   status_code:
     type: integer
     default: 200
-    description: "Expected HTTP status code to consider endpoint available"
+    description: Expected HTTP status code to consider endpoint available
   headers:
     type: string
     default: ""
-    description: "Optional HTTP headers to include in requests (format: 'Header-Name: value')"
+    description: >-
+      Optional HTTP headers to include in requests
+      (format: 'Header-Name: value')
   method:
     type: enum
-    enum: ["GET", "POST", "HEAD"]
-    default: "GET"
-    description: "HTTP method to use"
+    enum: [GET, POST, HEAD]
+    default: GET
+    description: HTTP method to use
   fail_on_error:
     type: boolean
     default: true
-    description: "Whether to fail the build if the endpoint doesn't become available within timeout"
+    description: >-
+      Whether to fail the build if the endpoint doesn't become available
+      within timeout
 
 steps:
   - run:
@@ -44,7 +49,7 @@ steps:
       command: |
         start_time=$(date +%s)
         end_time=$((start_time + << parameters.timeout >>))
-        
+
         # Prepare headers
         HEADER_ARGS=""
         if [ -n "<< parameters.headers >>" ]; then
@@ -55,24 +60,28 @@ steps:
           done
           unset IFS
         fi
-        
+
         # Verbose output message
         if [ "<< parameters.verbose >>" = "true" ]; then
-          echo "Waiting for << parameters.service_name >> at << parameters.url >>..."
-          echo "Timeout: << parameters.timeout >>s, Interval: << parameters.interval >>s, Expected status: << parameters.status_code >>"
+          echo "Waiting for << parameters.service_name >>"
+          echo "URL: << parameters.url >>"
+          echo "Timeout: << parameters.timeout >>s,"
+          echo "Interval: << parameters.interval >>s,"
+          echo "Expected status: << parameters.status_code >>"
           if [ -n "<< parameters.headers >>" ]; then
             echo "Using headers: << parameters.headers >>"
           fi
         fi
-        
+
         # Main wait loop
         while true; do
           current_time=$(date +%s)
           elapsed=$((current_time - start_time))
-          
+
           # Check timeout
           if [ $current_time -gt $end_time ]; then
-            echo "Timeout waiting for << parameters.service_name >> after ${elapsed}s"
+            echo "Timeout after ${elapsed}s"
+            echo "Service: << parameters.service_name >>"
             if [ "<< parameters.fail_on_error >>" = "true" ]; then
               exit 1
             else
@@ -80,27 +89,29 @@ steps:
               exit 0
             fi
           fi
-          
+
           # Attempt to connect with appropriate options
           if [ "<< parameters.verbose >>" = "true" ]; then
-            echo "Checking << parameters.service_name >>... (${elapsed}s elapsed)"
+            echo "Checking service... (${elapsed}s elapsed)"
           fi
-          
+
           status_code=$(curl -s -o /dev/null -w "%{http_code}" \
             -X << parameters.method >> \
             $HEADER_ARGS \
             << parameters.url >>)
-          
+
           if [ "$status_code" = "<< parameters.status_code >>" ]; then
-            echo "<< parameters.service_name >> is up! (HTTP << parameters.status_code >> received)"
+            echo "<< parameters.service_name >> is up!"
+            echo "HTTP << parameters.status_code >> received"
             exit 0
           elif [ "<< parameters.verbose >>" = "true" ]; then
             if [ -n "$status_code" ]; then
-              echo "Received status code: $status_code (waiting for << parameters.status_code >>)"
+              echo "Received status code: $status_code"
+              echo "(waiting for << parameters.status_code >>)"
             else
               echo "Connection failed"
             fi
           fi
-          
+
           sleep << parameters.interval >>
-        done 
+        done

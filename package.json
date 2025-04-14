@@ -1,0 +1,22 @@
+{
+  "name": "wait-for-orb",
+  "version": "1.0.0",
+  "description": "CircleCI orb for waiting on HTTP endpoints",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint --ext .yml --fix src/",
+    "lint:check": "eslint --ext .yml src/"
+  },
+  "keywords": [
+    "circleci",
+    "orb",
+    "wait-for"
+  ],
+  "author": "nobari",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-plugin-yml": "^1.12.2",
+    "yaml-eslint-parser": "^1.2.2"
+  }
+} 

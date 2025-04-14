@@ -2,9 +2,11 @@ version: 2.1
 
 orbs:
   # Use the orb-tools orb
-  orb-tools: circleci/orb-tools@11.1
+  orb-tools: circleci/orb-tools@12.3.1
   # Use the shellcheck orb
-  shellcheck: circleci/shellcheck@3.1
+  shellcheck: circleci/shellcheck@3.4.0
+  # Use the node orb for running eslint
+  node: circleci/node@5.1.0
 
 # Pipeline parameters
 parameters:
@@ -32,6 +34,17 @@ jobs:
       - shellcheck/install
       - shellcheck/check:
           dir: ./src
+  
+  # Lint YAML files with eslint
+  eslint:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          name: Run eslint
+          command: npm run lint:check
 
 # Workflows
 workflows:
@@ -39,14 +52,19 @@ workflows:
   lint-pack:
     jobs:
       - shellcheck
+      - eslint
       - orb-tools/lint:
           requires:
             - shellcheck
+            - eslint
       - orb-tools/pack:
           requires:
             - orb-tools/lint
-      - orb-tools/publish-dev:
-          orb-name: << pipeline.parameters.orb-name >>
+      - orb-tools/publish:
+          orb_name: << pipeline.parameters.orb-name >>
+          vcs_type: github
+          pub_type: dev
+          dev_tags: << pipeline.parameters.dev-orb-version >>
           requires:
             - orb-tools/pack
           context: orb-publishing
@@ -57,14 +75,24 @@ workflows:
   # When a tag is published, publish the orb
   tag-release:
     jobs:
+      - eslint:
+          filters:
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/
       - orb-tools/pack:
+          requires:
+            - eslint
           filters:
             tags:
               only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
             branches:
               ignore: /.*/
       - orb-tools/publish:
-          orb-name: << pipeline.parameters.orb-name >>
+          orb_name: << pipeline.parameters.orb-name >>
+          vcs_type: github
+          pub_type: production
           requires:
             - orb-tools/pack
           context: orb-publishing
@@ -72,5 +100,4 @@ workflows:
             tags:
               only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
             branches:
-              ignore: /.*/
-          vcs-type: github 
+              ignore: /.*/ 

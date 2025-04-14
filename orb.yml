@@ -1,18 +1,117 @@
 version: 2.1
-
-description: >
-  An orb to wait for HTTP endpoints to become available.
-  Use this orb to wait for services, APIs, or any HTTP endpoint before proceeding with your workflow.
-
+description: |
+  An orb to wait for HTTP endpoints to become available. Use this orb to wait for services, APIs, or any HTTP endpoint before proceeding with your workflow.
 display:
-  home_url: "https://github.com/nobari/wait-for"
-  source_url: "https://github.com/nobari/wait-for"
-
-# Include commands from src/commands directory
+  home_url: https://github.com/nobari/wait-for
+  source_url: https://github.com/nobari/wait-for
 commands:
-  wait_for_endpoint: !include src/commands/wait_for_endpoint.yml
-
-# Include examples from src/examples directory
+  wait_for_endpoint:
+    description: |
+      Wait for an HTTP endpoint to become available before proceeding.
+    parameters:
+      fail_on_error:
+        default: true
+        description: Whether to fail the build if the endpoint doesn't become available within timeout
+        type: boolean
+      headers:
+        default: ''
+        description: "Optional HTTP headers to include in requests (format: 'Header-Name: value')"
+        type: string
+      interval:
+        default: 5
+        description: Interval between checks in seconds
+        type: integer
+      method:
+        default: GET
+        description: HTTP method to use
+        enum:
+          - GET
+          - POST
+          - HEAD
+        type: enum
+      service_name:
+        description: A descriptive name for the service you're waiting for
+        type: string
+      status_code:
+        default: 200
+        description: Expected HTTP status code to consider endpoint available
+        type: integer
+      timeout:
+        default: 120
+        description: Maximum time to wait in seconds before failing
+        type: integer
+      url:
+        description: The URL to poll (e.g., http://localhost:8080/health)
+        type: string
+      verbose:
+        default: true
+        description: Enable verbose output
+        type: boolean
+    steps:
+      - run:
+          command: "start_time=$(date +%s)\nend_time=$((start_time + << parameters.timeout >>))\n\n# Prepare headers\nHEADER_ARGS=\"\"\nif [ -n \"<< parameters.headers >>\" ]; then\n  # Split on newlines and add as -H args\n  IFS=$'\\n'\n  for header in << parameters.headers >>; do\n    HEADER_ARGS=\"${HEADER_ARGS} -H \\\"${header}\\\"\"\n  done\n  unset IFS\nfi\n\n# Verbose output message\nif [ \"<< parameters.verbose >>\" = \"true\" ]; then\n  echo \"Waiting for << parameters.service_name >> at << parameters.url >>...\"\n  echo \"Timeout: << parameters.timeout >>s, Interval: << parameters.interval >>s, Expected status: << parameters.status_code >>\"\n  if [ -n \"<< parameters.headers >>\" ]; then\n    echo \"Using headers: << parameters.headers >>\"\n  fi\nfi\n\n# Main wait loop\nwhile true; do\n  current_time=$(date +%s)\n  elapsed=$((current_time - start_time))\n  \n  # Check timeout\n  if [ $current_time -gt $end_time ]; then\n    echo \"Timeout waiting for << parameters.service_name >> after ${elapsed}s\"\n    if [ \"<< parameters.fail_on_error >>\" = \"true\" ]; then\n      exit 1\n    else\n      echo \"Continuing despite endpoint not being available\"\n      exit 0\n    fi\n  fi\n  \n  # Attempt to connect with appropriate options\n  if [ \"<< parameters.verbose >>\" = \"true\" ]; then\n    echo \"Checking << parameters.service_name >>... (${elapsed}s elapsed)\"\n  fi\n  \n  status_code=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n    -X << parameters.method >> \\\n    $HEADER_ARGS \\\n    << parameters.url >>)\n  \n  if [ \"$status_code\" = \"<< parameters.status_code >>\" ]; then\n    echo \"<< parameters.service_name >> is up! (HTTP << parameters.status_code >> received)\"\n    exit 0\n  elif [ \"<< parameters.verbose >>\" = \"true\" ]; then\n    if [ -n \"$status_code\" ]; then\n      echo \"Received status code: $status_code (waiting for << parameters.status_code >>)\"\n    else\n      echo \"Connection failed\"\n    fi\n  fi\n  \n  sleep << parameters.interval >>\ndone "
+          name: Wait for << parameters.service_name >> endpoint
+executors: {}
 examples:
-  wait_for_api: !include src/examples/wait_for_api.yml
-  advanced_usage: !include src/examples/advanced_usage.yml 
+  advanced_usage:
+    description: |
+      Advanced usage with custom headers and additional configuration parameters.
+    usage:
+      version: '2.1'
+      orbs:
+        wait-for: nobari/wait-for@1.0.0
+      jobs:
+        secure-api-test:
+          docker:
+            - image: cimg/base:current
+          steps:
+            - checkout
+            - wait-for/wait_for_endpoint:
+                fail_on_error: false
+                headers: |-
+                  Authorization: Bearer ${API_TOKEN}
+                  Content-Type: application/json
+                interval: 10
+                method: POST
+                service_name: Secure API
+                status_code: 201
+                timeout: 300
+                url: https://api.example.com/v1/status
+                verbose: true
+            - run:
+                command: |
+                  # Your test code here
+                  echo "Running tests against the API"
+                name: Run tests with appropriate error handling
+      workflows:
+        api-test-workflow:
+          jobs:
+            - secure-api-test
+  wait_for_api:
+    description: |
+      Wait for an API to become available before proceeding with tests.
+    usage:
+      version: '2.1'
+      orbs:
+        wait-for: nobari/wait-for@1.0.0
+      jobs:
+        integration-test:
+          docker:
+            - image: cimg/base:current
+          steps:
+            - checkout
+            - run:
+                background: true
+                command: ./start-api.sh
+                name: Start API
+            - wait-for/wait_for_endpoint:
+                service_name: Backend API
+                timeout: 180
+                url: http://localhost:8080/health
+            - run:
+                command: ./run-tests.sh
+                name: Run integration tests
+      workflows:
+        test-workflow:
+          jobs:
+            - integration-test
