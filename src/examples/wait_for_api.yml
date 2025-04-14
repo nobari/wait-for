@@ -6,7 +6,7 @@ usage:
   version: 2.1
 
   orbs:
-    wait-for: nobari/wait-for@0.0.1
+    wait-for: nobari/wait-for@1.0.0
 
   jobs:
     integration-test:
@@ -20,7 +20,7 @@ usage:
             background: true
         - wait-for/wait_for_endpoint:
             url: "http://localhost:8080/health"
-            service_name: Backend API
+            service_name: "Backend API"
             timeout: 180
         - run:
             name: Run integration tests

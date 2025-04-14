@@ -12,7 +12,7 @@ Example use-case:
 version: 2.1
 
 orbs:
-  wait-for: nobari/wait-for@0.0.1
+  wait-for: nobari/wait-for@1.0.0
 
 jobs:
   integration-test:
@@ -64,7 +64,7 @@ Wait for an HTTP endpoint to become available.
 version: 2.1
 
 orbs:
-  wait-for: nobari/wait-for@0.0.1
+  wait-for: nobari/wait-for@1.0.0
 
 jobs:
   test:
@@ -82,7 +82,7 @@ jobs:
 version: 2.1
 
 orbs:
-  wait-for: nobari/wait-for@0.0.1
+  wait-for: nobari/wait-for@1.0.0
 
 jobs:
   test:
