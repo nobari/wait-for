@@ -1,0 +1,32 @@
+version: 2.1
+
+orbs:
+  wait-for: nobari/wait-for@dev:alpha
+
+jobs:
+  test:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Start a simple web server
+          command: |
+            cd /tmp
+            echo "<html><body>Hello World</body></html>" > index.html
+            python3 -m http.server 8080 &
+          background: true
+      - wait-for/wait_for_endpoint:
+          url: "http://localhost:8080"
+          service_name: "Test Server"
+          timeout: 30
+          interval: 2
+      - run:
+          name: Verify server is up
+          command: |
+            curl -s http://localhost:8080 | grep "Hello World"
+            echo "Success! The server is up and responding correctly."
+
+workflows:
+  test-workflow:
+    jobs:
+      - test 
