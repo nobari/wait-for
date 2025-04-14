@@ -96,7 +96,10 @@ steps:
           fi
 
           # Build curl command
-          CURL_CMD="curl -s -o /dev/null -w \"%{http_code}\" -X << parameters.method >> ${HEADER_ARGS} \"<< parameters.url >>\""
+          CURL_CMD="curl -s -o /dev/null -w \"%{http_code}\" "
+          CURL_CMD="${CURL_CMD} -X << parameters.method >>"
+          CURL_CMD="${CURL_CMD} ${HEADER_ARGS}"
+          CURL_CMD="${CURL_CMD} \"<< parameters.url >>\""
 
           # Debug information when verbose is true
           if [ "<< parameters.verbose >>" = "true" ]; then
