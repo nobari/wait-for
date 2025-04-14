@@ -49,7 +49,75 @@ commands:
         type: boolean
     steps:
       - run:
-          command: "start_time=$(date +%s)\nend_time=$((start_time + << parameters.timeout >>))\n\n# Prepare headers\nHEADER_ARGS=\"\"\nif [ -n \"<< parameters.headers >>\" ]; then\n  # Split on newlines and add as -H args\n  IFS=$'\\n'\n  for header in << parameters.headers >>; do\n    HEADER_ARGS=\"${HEADER_ARGS} -H \\\"${header}\\\"\"\n  done\n  unset IFS\nfi\n\n# Verbose output message\nif [ \"<< parameters.verbose >>\" = \"true\" ]; then\n  echo \"Waiting for << parameters.service_name >> at << parameters.url >>...\"\n  echo \"Timeout: << parameters.timeout >>s, Interval: << parameters.interval >>s, Expected status: << parameters.status_code >>\"\n  if [ -n \"<< parameters.headers >>\" ]; then\n    echo \"Using headers: << parameters.headers >>\"\n  fi\nfi\n\n# Main wait loop\nwhile true; do\n  current_time=$(date +%s)\n  elapsed=$((current_time - start_time))\n  \n  # Check timeout\n  if [ $current_time -gt $end_time ]; then\n    echo \"Timeout waiting for << parameters.service_name >> after ${elapsed}s\"\n    if [ \"<< parameters.fail_on_error >>\" = \"true\" ]; then\n      exit 1\n    else\n      echo \"Continuing despite endpoint not being available\"\n      exit 0\n    fi\n  fi\n  \n  # Attempt to connect with appropriate options\n  if [ \"<< parameters.verbose >>\" = \"true\" ]; then\n    echo \"Checking << parameters.service_name >>... (${elapsed}s elapsed)\"\n  fi\n  \n  status_code=$(curl -s -o /dev/null -w \"%{http_code}\" \\\n    -X << parameters.method >> \\\n    $HEADER_ARGS \\\n    << parameters.url >>)\n  \n  if [ \"$status_code\" = \"<< parameters.status_code >>\" ]; then\n    echo \"<< parameters.service_name >> is up! (HTTP << parameters.status_code >> received)\"\n    exit 0\n  elif [ \"<< parameters.verbose >>\" = \"true\" ]; then\n    if [ -n \"$status_code\" ]; then\n      echo \"Received status code: $status_code (waiting for << parameters.status_code >>)\"\n    else\n      echo \"Connection failed\"\n    fi\n  fi\n  \n  sleep << parameters.interval >>\ndone "
+          command: |
+            start_time=$(date +%s)
+            end_time=$((start_time + << parameters.timeout >>))
+
+            # Prepare headers
+            HEADER_ARGS=""
+            if [ -n "<< parameters.headers >>" ]; then
+              # Split on newlines and add as -H args
+              IFS=$'\n'
+              for header in << parameters.headers >>; do
+                HEADER_ARGS="${HEADER_ARGS} -H \"${header}\""
+              done
+              unset IFS
+            fi
+
+            # Verbose output message
+            if [ "<< parameters.verbose >>" = "true" ]; then
+              echo "Waiting for << parameters.service_name >>"
+              echo "URL: << parameters.url >>"
+              echo "Timeout: << parameters.timeout >>s,"
+              echo "Interval: << parameters.interval >>s,"
+              echo "Expected status: << parameters.status_code >>"
+              if [ -n "<< parameters.headers >>" ]; then
+                echo "Using headers: << parameters.headers >>"
+              fi
+            fi
+
+            # Main wait loop
+            while true; do
+              current_time=$(date +%s)
+              elapsed=$((current_time - start_time))
+
+              # Check timeout
+              if [ $current_time -gt $end_time ]; then
+                echo "Timeout after ${elapsed}s"
+                echo "Service: << parameters.service_name >>"
+                if [ "<< parameters.fail_on_error >>" = "true" ]; then
+                  exit 1
+                else
+                  echo "Continuing despite endpoint not being available"
+                  exit 0
+                fi
+              fi
+
+              # Attempt to connect with appropriate options
+              if [ "<< parameters.verbose >>" = "true" ]; then
+                echo "Checking service... (${elapsed}s elapsed)"
+              fi
+
+              status_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                -X << parameters.method >> \
+                $HEADER_ARGS \
+                << parameters.url >>)
+
+              if [ "$status_code" = "<< parameters.status_code >>" ]; then
+                echo "<< parameters.service_name >> is up!"
+                echo "HTTP << parameters.status_code >> received"
+                exit 0
+              elif [ "<< parameters.verbose >>" = "true" ]; then
+                if [ -n "$status_code" ]; then
+                  echo "Received status code: $status_code"
+                  echo "(waiting for << parameters.status_code >>)"
+                else
+                  echo "Connection failed"
+                fi
+              fi
+
+              sleep << parameters.interval >>
+            done
           name: Wait for << parameters.service_name >> endpoint
 executors: {}
 examples:
@@ -59,7 +127,7 @@ examples:
     usage:
       version: '2.1'
       orbs:
-        wait-for: nobari/wait-for@1.0.0
+        wait-for: nobari/wait-for@0.0.2
       jobs:
         secure-api-test:
           docker:
@@ -68,9 +136,7 @@ examples:
             - checkout
             - wait-for/wait_for_endpoint:
                 fail_on_error: false
-                headers: |-
-                  Authorization: Bearer ${API_TOKEN}
-                  Content-Type: application/json
+                headers: 'Authorization: Bearer ${API_TOKEN} Content-Type: application/json'
                 interval: 10
                 method: POST
                 service_name: Secure API
@@ -93,7 +159,7 @@ examples:
     usage:
       version: '2.1'
       orbs:
-        wait-for: nobari/wait-for@1.0.0
+        wait-for: nobari/wait-for@0.0.2
       jobs:
         integration-test:
           docker:
