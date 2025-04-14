@@ -20,7 +20,7 @@ usage:
             background: true
         - wait-for/wait_for_endpoint:
             url: "http://localhost:8080/health"
-            service_name: "Backend API"
+            service_name: Backend API
             timeout: 180
         - run:
             name: Run integration tests

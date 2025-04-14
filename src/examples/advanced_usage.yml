@@ -16,7 +16,7 @@ usage:
         - checkout
         - wait-for/wait_for_endpoint:
             url: "https://api.example.com/v1/status"
-            service_name: "Secure API"
+            service_name: Secure API
             timeout: 300
             interval: 10
             method: POST
