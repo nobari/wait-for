@@ -51,12 +51,12 @@ steps:
         end_time=$((start_time + << parameters.timeout >>))
 
         # Prepare headers
-        HEADER_ARGS=""
+        HEADER_ARGS=()
         if [ -n "<< parameters.headers >>" ]; then
           # Split on newlines and add as -H args
           IFS=$'\n'
           for header in << parameters.headers >>; do
-            HEADER_ARGS="${HEADER_ARGS} -H \"${header}\""
+            HEADER_ARGS+=("-H" "$header")
           done
           unset IFS
         fi
@@ -97,7 +97,7 @@ steps:
 
           status_code=$(curl -s -o /dev/null -w "%{http_code}" \
             -X << parameters.method >> \
-            $HEADER_ARGS \
+            "${HEADER_ARGS[@]}" \
             << parameters.url >>)
 
           if [ "$status_code" = "<< parameters.status_code >>" ]; then
