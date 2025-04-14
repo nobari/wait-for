@@ -1,0 +1,76 @@
+version: 2.1
+
+orbs:
+  # Use the orb-tools orb
+  orb-tools: circleci/orb-tools@11.1
+  # Use the shellcheck orb
+  shellcheck: circleci/shellcheck@3.1
+
+# Pipeline parameters
+parameters:
+  # Whether to run integration tests
+  run-integration-tests:
+    type: boolean
+    default: false
+  # Orb publishing tag
+  dev-orb-version:
+    type: string
+    default: dev:alpha
+  # Orb name
+  orb-name:
+    type: string
+    default: "nobari/wait-for"
+
+# Define jobs
+jobs:
+  # Lint shell scripts in the orb
+  shellcheck:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - shellcheck/install
+      - shellcheck/check:
+          dir: ./src
+
+# Workflows
+workflows:
+  # Lint and validate the orb
+  lint-pack:
+    jobs:
+      - shellcheck
+      - orb-tools/lint:
+          requires:
+            - shellcheck
+      - orb-tools/pack:
+          requires:
+            - orb-tools/lint
+      - orb-tools/publish-dev:
+          orb-name: << pipeline.parameters.orb-name >>
+          requires:
+            - orb-tools/pack
+          context: orb-publishing
+          filters:
+            branches:
+              only: /^(main|master|dev)$/
+
+  # When a tag is published, publish the orb
+  tag-release:
+    jobs:
+      - orb-tools/pack:
+          filters:
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/
+      - orb-tools/publish:
+          orb-name: << pipeline.parameters.orb-name >>
+          requires:
+            - orb-tools/pack
+          context: orb-publishing
+          filters:
+            tags:
+              only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+            branches:
+              ignore: /.*/
+          vcs-type: github 

@@ -1,0 +1,20 @@
+# Packed orb file
+orb.yml.bak
+
+# macOS
+.DS_Store
+
+# Node.js (for potential future integration tests)
+node_modules/
+
+# Testing
+.circleci/processed.yml
+
+# Build artifacts
+/dist/
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*~ 

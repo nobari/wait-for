@@ -1,0 +1,12 @@
+# Code ownership file for the wait-for orb
+# These owners will be requested for review when someone opens a pull request
+
+# Default owners for everything
+* @nobari
+
+# Orb specific files
+/src/ @nobari
+/orb.yml @nobari
+
+# CI configuration
+/.circleci/ @nobari 

@@ -1,0 +1,18 @@
+version: 2.1
+
+description: >
+  An orb to wait for HTTP endpoints to become available.
+  Use this orb to wait for services, APIs, or any HTTP endpoint before proceeding with your workflow.
+
+display:
+  home_url: "https://github.com/nobari/wait-for"
+  source_url: "https://github.com/nobari/wait-for"
+
+# Include commands from src/commands directory
+commands:
+  wait_for_endpoint: !include src/commands/wait_for_endpoint.yml
+
+# Include examples from src/examples directory
+examples:
+  wait_for_api: !include src/examples/wait_for_api.yml
+  advanced_usage: !include src/examples/advanced_usage.yml 

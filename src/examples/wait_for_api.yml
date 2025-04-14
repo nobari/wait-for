@@ -1,0 +1,31 @@
+description: >
+  Wait for an API to become available before proceeding with tests.
+
+usage:
+  version: 2.1
+  
+  orbs:
+    wait-for: nobari/wait-for@1.0.0
+  
+  jobs:
+    integration-test:
+      docker:
+        - image: cimg/base:current
+      steps:
+        - checkout
+        - run:
+            name: Start API
+            command: ./start-api.sh
+            background: true
+        - wait-for/wait_for_endpoint:
+            url: "http://localhost:8080/health"
+            service_name: "Backend API"
+            timeout: 180
+        - run:
+            name: Run integration tests
+            command: ./run-tests.sh
+  
+  workflows:
+    test-workflow:
+      jobs:
+        - integration-test 

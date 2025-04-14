@@ -1,0 +1,35 @@
+description: >
+  Advanced usage with custom headers and additional configuration parameters.
+
+usage:
+  version: 2.1
+  
+  orbs:
+    wait-for: nobari/wait-for@1.0.0
+  
+  jobs:
+    secure-api-test:
+      docker:
+        - image: cimg/base:current
+      steps:
+        - checkout
+        - wait-for/wait_for_endpoint:
+            url: "https://api.example.com/v1/status"
+            service_name: "Secure API"
+            timeout: 300
+            interval: 10
+            method: POST
+            status_code: 201
+            headers: "Authorization: Bearer ${API_TOKEN}\nContent-Type: application/json"
+            verbose: true
+            fail_on_error: false
+        - run:
+            name: Run tests with appropriate error handling
+            command: |
+              # Your test code here
+              echo "Running tests against the API"
+  
+  workflows:
+    api-test-workflow:
+      jobs:
+        - secure-api-test 
