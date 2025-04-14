@@ -97,22 +97,22 @@ steps:
 
           # Build curl command
           CURL_CMD="curl -s -o /dev/null -w \"%{http_code}\" -X << parameters.method >> ${HEADER_ARGS} \"<< parameters.url >>\""
-          
+
           # Debug information when verbose is true
           if [ "<< parameters.verbose >>" = "true" ]; then
             echo "Debug: Full curl command: ${CURL_CMD}"
-            
+
             # Capture detailed curl output for debugging
             set +e  # Don't exit on error
             eval ${CURL_CMD} -v > curl_output.txt 2>&1
             curl_exit_code=$?
             set -e  # Exit on error (restore default behavior)
-            
+
             echo "Debug: curl exit code: ${curl_exit_code}"
             echo "Debug: curl output:"
             cat curl_output.txt
           fi
-          
+
           # Execute curl command for actual check
           status_code=$(eval ${CURL_CMD} || echo "failed_$?")
 
