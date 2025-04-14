@@ -54,12 +54,12 @@ commands:
                     end_time=$((start_time + << parameters.timeout >>))
 
                     # Prepare headers
-                    HEADER_ARGS=""
+                    HEADER_ARGS=()
                     if [ -n "<< parameters.headers >>" ]; then
                       # Split on newlines and add as -H args
                       IFS=$'\n'
                       for header in << parameters.headers >>; do
-                        HEADER_ARGS="${HEADER_ARGS} -H \"${header}\""
+                        HEADER_ARGS+=("-H" "$header")
                       done
                       unset IFS
                     fi
@@ -100,7 +100,7 @@ commands:
 
                       status_code=$(curl -s -o /dev/null -w "%{http_code}" \
                         -X << parameters.method >> \
-                        $HEADER_ARGS \
+                        "${HEADER_ARGS[@]}" \
                         << parameters.url >>)
 
                       if [ "$status_code" = "<< parameters.status_code >>" ]; then
@@ -127,7 +127,7 @@ examples:
         usage:
             version: "2.1"
             orbs:
-                wait-for: nobari/wait-for@0.0.1
+                wait-for: nobari/wait-for@1.0.0
             jobs:
                 secure-api-test:
                     docker:
@@ -159,7 +159,7 @@ examples:
         usage:
             version: "2.1"
             orbs:
-                wait-for: nobari/wait-for@0.0.1
+                wait-for: nobari/wait-for@1.0.0
             jobs:
                 integration-test:
                     docker:
