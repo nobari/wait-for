@@ -20,7 +20,7 @@ parameters:
   verbose:
     type: boolean
     default: true
-    description: Enable verbose output
+    description: Enable verbose output including debug information
   status_code:
     type: integer
     default: 200
@@ -103,37 +103,41 @@ steps:
 
           # Debug information when verbose is true
           if [ "<< parameters.verbose >>" = "true" ]; then
-            echo "Debug: Full curl command: ${CURL_CMD}"
+            echo "⚙️  Debug: Full curl command: ${CURL_CMD}"
+            echo ""
 
-            # Capture detailed curl output for debugging
+            # Capture detailed curl output and status code in one execution
             set +e  # Don't exit on error
-            eval ${CURL_CMD} -v > curl_output.txt 2>&1
+            status_code=$(eval ${CURL_CMD} -v 2> curl_output.txt || echo "failed_$?")
             curl_exit_code=$?
             set -e  # Exit on error (restore default behavior)
 
-            echo "Debug: curl exit code: ${curl_exit_code}"
-            echo "Debug: curl output:"
+            echo "⚙️  Debug: curl exit code: ${curl_exit_code}"
+            echo "⚙️  Debug: curl output:"
             cat curl_output.txt
+            echo ""
+            echo "⚙️  Debug: status code: ${status_code}"
+            echo ""
+          else
+            # Execute curl command for the check when not in verbose mode
+            status_code=$(eval ${CURL_CMD} || echo "failed_$?")
           fi
 
-          # Execute curl command for actual check
-          status_code=$(eval ${CURL_CMD} || echo "failed_$?")
-
           if [ "$status_code" = "<< parameters.status_code >>" ]; then
-            echo "<< parameters.service_name >> is up!"
-            echo "HTTP << parameters.status_code >> received"
+            echo "✅ << parameters.service_name >> is up!"
+            echo "✅ HTTP << parameters.status_code >> received"
             exit 0
           elif [ "<< parameters.verbose >>" = "true" ]; then
             if [ -n "$status_code" ]; then
               if [[ "$status_code" == failed_* ]]; then
                 exit_code=${status_code#failed_}
-                echo "Curl command failed with exit code: ${exit_code}"
+                echo "❌ Curl command failed with exit code: ${exit_code}"
               else
-                echo "Received status code: $status_code"
-                echo "(waiting for << parameters.status_code >>)"
+                echo "⏳ Received status code: $status_code"
+                echo "⏳ (waiting for << parameters.status_code >>)"
               fi
             else
-              echo "Connection failed"
+              echo "❌ Connection failed"
             fi
           fi
 
