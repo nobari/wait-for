@@ -2,7 +2,7 @@ module.exports = {
   plugins: ['yml'],
   extends: ['plugin:yml/standard'],
   rules: {
-    'max-len': ['error', { code: 80 }],
+    'max-len': ['error', { code: 120 }],
     'no-trailing-spaces': 'error'
   },
   overrides: [

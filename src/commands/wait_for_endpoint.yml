@@ -42,6 +42,48 @@ parameters:
     description: >-
       Whether to fail the build if the endpoint doesn't become available
       within timeout
+  body:
+    type: string
+    default: ""
+    description: Request body content for POST requests
+  ca_cert:
+    type: string
+    default: ""
+    description: Path to custom CA certificate for HTTPS verification
+  max_retries:
+    type: integer
+    default: 0
+    description: >-
+      Maximum number of connection attempts before timeout.
+      When 0, uses timeout/interval to determine max attempts
+  require_response_body:
+    type: boolean
+    default: false
+    description: Whether to require a non-empty response body
+  response_contains:
+    type: string
+    default: ""
+    description: Text that must be present in response body
+  insecure:
+    type: boolean
+    default: false
+    description: Skip SSL certificate validation for HTTPS requests
+  connect_timeout:
+    type: integer
+    default: 10
+    description: Timeout for establishing connection in seconds
+  follow_redirects:
+    type: boolean
+    default: true
+    description: Whether to follow HTTP redirects
+  basic_auth:
+    type: string
+    default: ""
+    description: "username:password for basic authentication"
+  proxy:
+    type: string
+    default: ""
+    description: Proxy URL to use for requests
 
 steps:
   - run:
@@ -49,6 +91,15 @@ steps:
       command: |
         start_time=$(date +%s)
         end_time=$((start_time + << parameters.timeout >>))
+        attempt=0
+
+        # Determine maximum retry attempts
+        if [ << parameters.max_retries >> -gt 0 ]; then
+          max_attempts=<< parameters.max_retries >>
+        else
+          # If max_retries is 0, calculate based on timeout and interval
+          max_attempts=$(( << parameters.timeout >> / << parameters.interval >> ))
+        fi
 
         # Prepare headers
         HEADER_ARGS=""
@@ -61,15 +112,34 @@ steps:
           unset IFS
         fi
 
+        # Add basic auth if specified
+        if [ -n "<< parameters.basic_auth >>" ]; then
+          HEADER_ARGS="${HEADER_ARGS} -u \"<< parameters.basic_auth >>\""
+        fi
+
         # Verbose output message
         if [ "<< parameters.verbose >>" = "true" ]; then
           echo "Waiting for << parameters.service_name >>"
           echo "URL: << parameters.url >>"
-          echo "Timeout: << parameters.timeout >>s,"
-          echo "Interval: << parameters.interval >>s,"
+          echo "Timeout: << parameters.timeout >>s, Interval: << parameters.interval >>s"
           echo "Expected status: << parameters.status_code >>"
           if [ -n "<< parameters.headers >>" ]; then
             echo "Using headers: << parameters.headers >>"
+          fi
+          if [ -n "<< parameters.body >>" ]; then
+            echo "Using body content for POST requests"
+          fi
+          if [ -n "<< parameters.response_contains >>" ]; then
+            echo "Verifying response contains text: '<< parameters.response_contains >>'"
+          fi
+          if [ "<< parameters.require_response_body >>" = "true" ]; then
+            echo "Requiring non-empty response body"
+          fi
+          if [ "<< parameters.insecure >>" = "true" ]; then
+            echo "Skipping SSL certificate validation"
+          fi
+          if [ << parameters.max_retries >> -gt 0 ]; then
+            echo "Maximum retry attempts: << parameters.max_retries >>"
           fi
         fi
 
@@ -77,44 +147,93 @@ steps:
         while true; do
           current_time=$(date +%s)
           elapsed=$((current_time - start_time))
+          attempt=$((attempt + 1))
 
           # Check timeout
           if [ $current_time -gt $end_time ]; then
-            echo "Timeout after ${elapsed}s"
-            echo "Service: << parameters.service_name >>"
+            echo "Timeout after ${elapsed}s waiting for << parameters.service_name >>"
             if [ "<< parameters.fail_on_error >>" = "true" ]; then
               exit 1
             else
-              echo "Continuing despite endpoint not being available"
+              echo "Continuing despite endpoint not being available (fail_on_error=false)"
+              exit 0
+            fi
+          fi
+
+          # Check max attempts if specified
+          if [ << parameters.max_retries >> -gt 0 ] && [ $attempt -gt $max_attempts ]; then
+            echo "Reached maximum number of attempts (${max_attempts}) for << parameters.service_name >>"
+            if [ "<< parameters.fail_on_error >>" = "true" ]; then
+              exit 1
+            else
+              echo "Continuing despite endpoint not being available (fail_on_error=false)"
               exit 0
             fi
           fi
 
           # Attempt to connect with appropriate options
           if [ "<< parameters.verbose >>" = "true" ]; then
-            echo "Checking service... (${elapsed}s elapsed)"
+            echo "Checking << parameters.service_name >> (${elapsed}s elapsed, attempt ${attempt}/${max_attempts})"
           fi
 
           # Build curl command
-          CURL_CMD="curl -s -o /dev/null -w \"%{http_code}\" "
-          CURL_CMD="${CURL_CMD} -X << parameters.method >>"
-          CURL_CMD="${CURL_CMD} ${HEADER_ARGS}"
-          CURL_CMD="${CURL_CMD} \"<< parameters.url >>\""
+          CURL_CMD="curl -s"
+
+          # Handle response body requirements
+          has_body=false
+          if [ "<< parameters.require_response_body >>" = "true" ] || [ -n "<< parameters.response_contains >>" ]; then
+            has_body=true
+            RESPONSE_FILE="response_body.txt"
+            CURL_CMD="${CURL_CMD} -o ${RESPONSE_FILE}"
+          else
+            CURL_CMD="${CURL_CMD} -o /dev/null"
+          fi
+
+          CURL_CMD="${CURL_CMD} -w \"%{http_code}\" -X << parameters.method >>"
+
+          # Add SSL options
+          if [ "<< parameters.insecure >>" = "true" ]; then
+            CURL_CMD="${CURL_CMD} -k"
+          fi
+
+          if [ -n "<< parameters.ca_cert >>" ]; then
+            CURL_CMD="${CURL_CMD} --cacert \"<< parameters.ca_cert >>\""
+          fi
+
+          # Add connection timeout, redirect handling, and proxy if specified
+          CURL_CMD="${CURL_CMD} --connect-timeout << parameters.connect_timeout >>"
+
+          if [ "<< parameters.follow_redirects >>" = "true" ]; then
+            CURL_CMD="${CURL_CMD} -L"
+          fi
+
+          if [ -n "<< parameters.proxy >>" ]; then
+            CURL_CMD="${CURL_CMD} --proxy \"<< parameters.proxy >>\""
+          fi
+
+          # Add body for POST requests
+          if [ -n "<< parameters.body >>" ] && [ "<< parameters.method >>" = "POST" ]; then
+            CURL_CMD="${CURL_CMD} -d \"<< parameters.body >>\""
+          fi
+
+          CURL_CMD="${CURL_CMD} ${HEADER_ARGS} \"<< parameters.url >>\""
 
           # Debug information when verbose is true
           if [ "<< parameters.verbose >>" = "true" ]; then
             echo "⚙️  Debug: Full curl command: ${CURL_CMD}"
             echo ""
 
-            # Capture detailed curl output and status code in one execution
+            # Capture detailed curl output and status code
             set +e  # Don't exit on error
-            status_code=$(eval ${CURL_CMD} -v 2> curl_output.txt || echo "failed_$?")
+            cmd_output=$(eval ${CURL_CMD} -v 2>&1)
             curl_exit_code=$?
+            # Extract status code from output
+            status_code=$(echo "$cmd_output" | grep -o '[0-9]\{3\}$' || echo "failed_$curl_exit_code")
             set -e  # Exit on error (restore default behavior)
 
             echo "⚙️  Debug: curl exit code: ${curl_exit_code}"
             echo "⚙️  Debug: curl output:"
-            cat curl_output.txt
+            echo "$cmd_output"
             echo ""
             echo "⚙️  Debug: status code: ${status_code}"
             echo ""
@@ -123,9 +242,41 @@ steps:
             status_code=$(eval ${CURL_CMD} || echo "failed_$?")
           fi
 
+          # Check if status code matches expected
+          status_code_ok=false
           if [ "$status_code" = "<< parameters.status_code >>" ]; then
-            echo "✅ << parameters.service_name >> is up!"
-            echo "✅ HTTP << parameters.status_code >> received"
+            status_code_ok=true
+          fi
+
+          # Check response body if required
+          body_check_ok=true
+          if [ "$status_code_ok" = "true" ] && [ "<< parameters.require_response_body >>" = "true" ]; then
+            if [ ! -s "${RESPONSE_FILE}" ]; then
+              body_check_ok=false
+              if [ "<< parameters.verbose >>" = "true" ]; then
+                echo "❌ Response body is empty (required non-empty)"
+              fi
+            fi
+          fi
+
+          # Check response contains specific text if required
+          contains_check_ok=true
+          if [ "$status_code_ok" = "true" ] && [ -n "<< parameters.response_contains >>" ]; then
+            search_text="<< parameters.response_contains >>"
+            if ! grep -q "$search_text" "${RESPONSE_FILE}" 2>/dev/null; then
+              contains_check_ok=false
+              if [ "<< parameters.verbose >>" = "true" ]; then
+                echo "❌ Response doesn't contain required text: '<< parameters.response_contains >>'"
+              fi
+            fi
+          fi
+
+          # Service is up if all checks pass
+          if [ "$status_code_ok" = "true" ] && [ "$body_check_ok" = "true" ] && [ "$contains_check_ok" = "true" ]; then
+            echo "✅ << parameters.service_name >> is up! HTTP << parameters.status_code >> received"
+            if [ "$has_body" = "true" ]; then
+              echo "✅ Response body checks passed"
+            fi
             exit 0
           elif [ "<< parameters.verbose >>" = "true" ]; then
             if [ -n "$status_code" ]; then
@@ -133,12 +284,16 @@ steps:
                 exit_code=${status_code#failed_}
                 echo "❌ Curl command failed with exit code: ${exit_code}"
               else
-                echo "⏳ Received status code: $status_code"
-                echo "⏳ (waiting for << parameters.status_code >>)"
+                echo "⏳ Received status code: $status_code (waiting for << parameters.status_code >>)"
               fi
             else
               echo "❌ Connection failed"
             fi
+          fi
+
+          # Clean up response file if created
+          if [ -f "${RESPONSE_FILE}" ]; then
+            rm "${RESPONSE_FILE}"
           fi
 
           sleep << parameters.interval >>
